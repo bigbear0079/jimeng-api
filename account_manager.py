@@ -89,7 +89,7 @@ def get_credits_from_api(token: str) -> dict:
     """从 jimeng-api 获取账户积分"""
     try:
         resp = requests.post(
-            "http://127.0.0.1:5566/token/points",
+            "http://127.0.0.1:5100/token/points",
             headers={"Authorization": f"Bearer {token}"},
             json={},
             timeout=30,
@@ -116,7 +116,7 @@ def receive_credits_from_api(token: str) -> dict:
     """从 jimeng-api 领取每日积分"""
     try:
         resp = requests.post(
-            "http://127.0.0.1:5566/token/receive",
+            "http://127.0.0.1:5100/token/receive",
             headers={"Authorization": f"Bearer {token}"},
             json={},
             timeout=60,
