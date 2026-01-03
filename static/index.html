@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dreamina 管理后台</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/element-plus"></script>
+    <script src="https://unpkg.com/@element-plus/icons-vue"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; color: white; padding: 30px 0; }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header p { opacity: 0.9; }
+        .main-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .el-tabs__header { padding: 0 20px; background: #f8f9fa; }
+        .el-tabs__content { padding: 20px; }
+        .stats-bar { 
+            display: flex; gap: 20px; padding: 15px 20px; 
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e7ed 100%); 
+            border-radius: 12px; margin-bottom: 20px; 
+        }
+        .stat-item { text-align: center; flex: 1; }
+        .stat-value { font-size: 28px; font-weight: bold; color: #667eea; }
+        .stat-label { font-size: 12px; color: #666; margin-top: 4px; }
+        .toolbar { 
+            display: flex; justify-content: space-between; 
+            align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; 
+        }
+        .account-card {
+            padding: 20px; border: 1px solid #eee; border-radius: 12px;
+            margin-bottom: 15px; transition: all 0.3s;
+            background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+        }
+        .account-card:hover { 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+            transform: translateY(-2px);
+        }
+        .account-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .account-title { font-size: 16px; font-weight: bold; color: #333; }
+        .credit-bar {
+            height: 8px; background: #eee; border-radius: 4px; 
+            overflow: hidden; margin: 10px 0;
+        }
+        .credit-bar-fill {
+            height: 100%; border-radius: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.5s ease;
+        }
+        .credit-detail { display: flex; gap: 15px; font-size: 12px; color: #666; }
+        .credit-item { display: flex; align-items: center; gap: 4px; }
+        .credit-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .dot-gift { background: #67c23a; }
+        .dot-purchase { background: #409eff; }
+        .dot-vip { background: #e6a23c; }
+        .task-prompt { 
+            max-width: 300px; overflow: hidden; 
+            text-overflow: ellipsis; white-space: nowrap; 
+        }
+        .result-preview { 
+            max-width: 80px; max-height: 80px; 
+            border-radius: 8px; cursor: pointer; 
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Dreamina 管理后台</h1>
+            <p>账户管理 · 积分查询 · 任务记录</p>
+        </div>
+        
+        <div class="main-card">
+            <el-tabs v-model="activeTab">
+                <!-- 图片生成 -->
+                <el-tab-pane label="🎨 图片生成" name="generate">
+                    <div class="stats-bar">
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: #409eff;">{{ accountStats.total_credits }}</div>
+                            <div class="stat-label">可用积分</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: #67c23a;">{{ accountStats.available_count }}</div>
+                            <div class="stat-label">可用账户</div>
+                        </div>
+                    </div>
+                    
+                    <el-form label-width="100px" style="max-width: 800px;">
+                        <el-form-item label="提示词">
+                            <el-input v-model="generateForm.prompt" type="textarea" :rows="3" 
+                                placeholder="描述你想生成的图片内容，例如：A cute cat sitting on a windowsill watching the sunset"></el-input>
+                        </el-form-item>
+                        <el-form-item label="模型">
+                            <el-select v-model="generateForm.model" style="width: 200px;">
+                                <el-option label="Jimeng 4.5 (推荐)" value="jimeng-4.5"></el-option>
+                                <el-option label="Jimeng 4.1" value="jimeng-4.1"></el-option>
+                                <el-option label="Jimeng 4.0" value="jimeng-4.0"></el-option>
+                                <el-option label="Jimeng 3.0" value="jimeng-3.0"></el-option>
+                            </el-select>
+                        </el-form-item>
+                        <el-form-item label="比例">
+                            <el-radio-group v-model="generateForm.ratio">
+                                <el-radio-button label="1:1">1:1 正方形</el-radio-button>
+                                <el-radio-button label="16:9">16:9 横屏</el-radio-button>
+                                <el-radio-button label="9:16">9:16 竖屏</el-radio-button>
+                                <el-radio-button label="4:3">4:3</el-radio-button>
+                                <el-radio-button label="3:4">3:4</el-radio-button>
+                            </el-radio-group>
+                        </el-form-item>
+                        <el-form-item label="分辨率">
+                            <el-radio-group v-model="generateForm.resolution">
+                                <el-radio-button label="1k">1K</el-radio-button>
+                                <el-radio-button label="2k">2K (推荐)</el-radio-button>
+                                <el-radio-button label="4k">4K</el-radio-button>
+                            </el-radio-group>
+                        </el-form-item>
+                        <el-form-item label="账户">
+                            <el-select v-model="generateForm.account_id" placeholder="自动选择" clearable style="width: 200px;">
+                                <el-option v-for="acc in accounts" :key="acc.id" 
+                                    :label="'账户 ' + acc.id + ' (' + acc.credits + '积分)'" 
+                                    :value="acc.id"
+                                    :disabled="acc.credits < 4"></el-option>
+                            </el-select>
+                            <span style="margin-left: 10px; color: #999; font-size: 12px;">不选则自动分配</span>
+                        </el-form-item>
+                        <el-form-item>
+                            <el-button type="primary" size="large" @click="generateImage" :loading="generating" :disabled="!generateForm.prompt">
+                                <el-icon><Picture /></el-icon> 生成图片 (约4积分)
+                            </el-button>
+                        </el-form-item>
+                    </el-form>
+                    
+                    <!-- 生成结果 -->
+                    <div v-if="generateResult" style="margin-top: 20px;">
+                        <el-divider>生成结果</el-divider>
+                        <div v-if="generateResult.success" style="display: flex; flex-wrap: wrap; gap: 15px;">
+                            <div v-for="(url, i) in (generateResult.images || generateResult.data?.data || [])" :key="i" 
+                                style="border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                                <img :src="typeof url === 'string' ? url : url.url" style="max-width: 300px; max-height: 300px; display: block;" @click="previewImage(typeof url === 'string' ? url : url.url)">
+                                <div style="padding: 8px; background: #f5f7fa; text-align: center;">
+                                    <a :href="typeof url === 'string' ? url : url.url" target="_blank" style="color: #667eea; font-size: 12px;">下载原图</a>
+                                </div>
+                            </div>
+                        </div>
+                        <el-alert v-else type="error" :title="generateResult.error || '生成失败'" show-icon></el-alert>
+                    </div>
+                </el-tab-pane>
+
+                <!-- 账户管理 -->
+                <el-tab-pane label="👤 账户管理" name="accounts">
+                    <div class="stats-bar">
+                        <div class="stat-item">
+                            <div class="stat-value">{{ accountStats.total_count }}</div>
+                            <div class="stat-label">总账户数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: #67c23a;">{{ accountStats.available_count }}</div>
+                            <div class="stat-label">可用账户</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: #409eff;">{{ accountStats.total_credits }}</div>
+                            <div class="stat-label">总积分</div>
+                        </div>
+                    </div>
+                    
+                    <div class="toolbar">
+                        <el-button type="primary" @click="refreshAllAccounts" :loading="refreshing">
+                            <el-icon><Refresh /></el-icon> 刷新所有积分
+                        </el-button>
+                        <span style="color: #666; font-size: 13px;">
+                            上次刷新: {{ lastRefreshTime || '未刷新' }}
+                        </span>
+                    </div>
+                    
+                    <el-row :gutter="15">
+                        <el-col :xs="24" :sm="12" :md="8" :lg="6" v-for="acc in accounts" :key="acc.id">
+                            <div class="account-card">
+                                <div class="account-header">
+                                    <span class="account-title">
+                                        账户 {{ acc.id }}
+                                        <el-tag size="small" style="margin-left: 8px;">{{ acc.region.toUpperCase() }}</el-tag>
+                                    </span>
+                                    <el-tag :type="acc.credits >= 4 ? 'success' : 'danger'" size="small">
+                                        {{ acc.credits }} 积分
+                                    </el-tag>
+                                </div>
+                                <div class="credit-bar">
+                                    <div class="credit-bar-fill" :style="{ width: Math.min(acc.credits, 100) + '%' }"></div>
+                                </div>
+                                <div class="credit-detail">
+                                    <span class="credit-item">
+                                        <span class="credit-dot dot-gift"></span>
+                                        赠送: {{ acc.gift_credit }}
+                                    </span>
+                                    <span class="credit-item">
+                                        <span class="credit-dot dot-purchase"></span>
+                                        购买: {{ acc.purchase_credit }}
+                                    </span>
+                                    <span class="credit-item">
+                                        <span class="credit-dot dot-vip"></span>
+                                        VIP: {{ acc.vip_credit }}
+                                    </span>
+                                </div>
+                                <div style="margin-top: 10px; font-size: 12px; color: #999;">
+                                    更新: {{ formatTime(acc.last_update) }}
+                                </div>
+                            </div>
+                        </el-col>
+                    </el-row>
+                </el-tab-pane>
+
+                <!-- 任务记录 -->
+                <el-tab-pane label="📋 任务记录" name="tasks">
+                    <div class="stats-bar">
+                        <div class="stat-item">
+                            <div class="stat-value">{{ taskStats.total }}</div>
+                            <div class="stat-label">总任务</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: #67c23a;">{{ taskStats.by_status?.completed || 0 }}</div>
+                            <div class="stat-label">已完成</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: #e6a23c;">{{ taskStats.by_status?.pending || 0 }}</div>
+                            <div class="stat-label">进行中</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: #f56c6c;">{{ taskStats.by_status?.failed || 0 }}</div>
+                            <div class="stat-label">失败</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: #909399;">{{ taskStats.today }}</div>
+                            <div class="stat-label">今日任务</div>
+                        </div>
+                    </div>
+                    
+                    <div class="toolbar">
+                        <div style="display: flex; gap: 10px;">
+                            <el-select v-model="taskFilter.status" placeholder="状态筛选" clearable style="width: 120px;">
+                                <el-option label="待处理" value="pending"></el-option>
+                                <el-option label="已完成" value="completed"></el-option>
+                                <el-option label="失败" value="failed"></el-option>
+                            </el-select>
+                            <el-select v-model="taskFilter.type" placeholder="类型筛选" clearable style="width: 120px;">
+                                <el-option label="图片" value="image"></el-option>
+                                <el-option label="视频" value="video"></el-option>
+                            </el-select>
+                            <el-button @click="loadTasks" :loading="loadingTasks">
+                                <el-icon><Search /></el-icon> 查询
+                            </el-button>
+                        </div>
+                        <el-button @click="loadTaskStats">
+                            <el-icon><Refresh /></el-icon> 刷新统计
+                        </el-button>
+                    </div>
+                    
+                    <el-table :data="tasks" border stripe>
+                        <el-table-column prop="id" label="ID" width="60"></el-table-column>
+                        <el-table-column prop="task_id" label="任务ID" width="200" show-overflow-tooltip></el-table-column>
+                        <el-table-column prop="account_id" label="账户" width="70"></el-table-column>
+                        <el-table-column label="类型" width="80">
+                            <template #default="{ row }">
+                                <el-tag :type="row.task_type === 'image' ? 'primary' : 'success'" size="small">
+                                    {{ row.task_type === 'image' ? '图片' : '视频' }}
+                                </el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="提示词" min-width="200">
+                            <template #default="{ row }">
+                                <el-tooltip :content="row.prompt" placement="top">
+                                    <span class="task-prompt">{{ row.prompt }}</span>
+                                </el-tooltip>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="状态" width="90">
+                            <template #default="{ row }">
+                                <el-tag :type="getStatusType(row.status)" size="small">
+                                    {{ getStatusText(row.status) }}
+                                </el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="积分" width="70" prop="credits_used"></el-table-column>
+                        <el-table-column label="结果" width="100">
+                            <template #default="{ row }">
+                                <a v-if="row.result_url" :href="row.result_url" target="_blank" style="color: #667eea;">
+                                    查看
+                                </a>
+                                <span v-else style="color: #999;">-</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="创建时间" width="160">
+                            <template #default="{ row }">
+                                {{ formatTime(row.created_at) }}
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                    
+                    <div style="margin-top: 20px; text-align: center;">
+                        <el-pagination
+                            v-model:current-page="taskPage"
+                            :page-size="taskPageSize"
+                            :total="taskTotal"
+                            layout="prev, pager, next, total"
+                            @current-change="loadTasks"
+                        ></el-pagination>
+                    </div>
+                </el-tab-pane>
+
+                <!-- 积分记录 -->
+                <el-tab-pane label="💰 积分记录" name="credits">
+                    <div class="toolbar">
+                        <el-select v-model="creditFilter.account_id" placeholder="选择账户" clearable style="width: 150px;">
+                            <el-option v-for="acc in accounts" :key="acc.id" :label="'账户 ' + acc.id" :value="acc.id"></el-option>
+                        </el-select>
+                        <el-button @click="loadCreditLogs" :loading="loadingCredits">
+                            <el-icon><Search /></el-icon> 查询
+                        </el-button>
+                    </div>
+                    
+                    <el-table :data="creditLogs" border stripe>
+                        <el-table-column prop="id" label="ID" width="60"></el-table-column>
+                        <el-table-column prop="account_id" label="账户" width="80"></el-table-column>
+                        <el-table-column label="变动" width="100">
+                            <template #default="{ row }">
+                                <span :style="{ color: row.change_amount > 0 ? '#67c23a' : '#f56c6c', fontWeight: 'bold' }">
+                                    {{ row.change_amount > 0 ? '+' : '' }}{{ row.change_amount }}
+                                </span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="change_type" label="类型" width="100">
+                            <template #default="{ row }">
+                                <el-tag size="small" :type="row.change_type === 'consume' ? 'danger' : 'success'">
+                                    {{ row.change_type === 'consume' ? '消耗' : '获得' }}
+                                </el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="balance_after" label="余额" width="80"></el-table-column>
+                        <el-table-column prop="description" label="描述" min-width="200"></el-table-column>
+                        <el-table-column label="时间" width="160">
+                            <template #default="{ row }">
+                                {{ formatTime(row.created_at) }}
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                    
+                    <div style="margin-top: 20px; text-align: center;">
+                        <el-pagination
+                            v-model:current-page="creditPage"
+                            :page-size="creditPageSize"
+                            :total="creditTotal"
+                            layout="prev, pager, next, total"
+                            @current-change="loadCreditLogs"
+                        ></el-pagination>
+                    </div>
+                </el-tab-pane>
+            </el-tabs>
+        </div>
+    </div>
+    
+    <!-- 图片预览对话框 -->
+    <el-dialog v-model="previewVisible" width="auto" :show-close="true">
+        <img :src="previewUrl" style="max-width: 90vw; max-height: 80vh;">
+    </el-dialog>
+</div>
+
+
+<script>
+const { createApp, ref, computed, onMounted } = Vue;
+
+const app = createApp({
+    setup() {
+        const activeTab = ref('generate');
+        
+        // ========== 图片生成 ==========
+        const generateForm = ref({
+            prompt: '',
+            model: 'jimeng-4.5',
+            ratio: '1:1',
+            resolution: '2k',
+            account_id: null,
+        });
+        const generating = ref(false);
+        const generateResult = ref(null);
+        
+        const generateImage = async () => {
+            if (!generateForm.value.prompt) {
+                ElementPlus.ElMessage.warning('请输入提示词');
+                return;
+            }
+            
+            generating.value = true;
+            generateResult.value = null;
+            
+            try {
+                const resp = await fetch('/api/generate/image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(generateForm.value),
+                });
+                
+                const data = await resp.json();
+                
+                if (resp.ok) {
+                    generateResult.value = data;
+                    if (data.success) {
+                        ElementPlus.ElMessage.success(`生成成功！使用账户 ${data.account_id}`);
+                        // 刷新账户积分
+                        loadAccounts();
+                    } else {
+                        generateResult.value = { success: false, error: data.data?.message || '生成失败' };
+                    }
+                } else {
+                    generateResult.value = { success: false, error: data.detail || '请求失败' };
+                }
+            } catch (e) {
+                generateResult.value = { success: false, error: e.message };
+            } finally {
+                generating.value = false;
+            }
+        };
+        
+        // 图片预览
+        const previewVisible = ref(false);
+        const previewUrl = ref('');
+        const previewImage = (url) => {
+            previewUrl.value = url;
+            previewVisible.value = true;
+        };
+        
+        // ========== 账户管理 ==========
+        const accounts = ref([]);
+        const accountStats = ref({ total_count: 0, available_count: 0, total_credits: 0 });
+        const refreshing = ref(false);
+        const lastRefreshTime = ref('');
+        
+        const loadAccounts = async () => {
+            try {
+                const resp = await fetch('/api/accounts');
+                const data = await resp.json();
+                accounts.value = data.accounts;
+                accountStats.value = {
+                    total_count: data.total_count,
+                    available_count: data.available_count,
+                    total_credits: data.total_credits,
+                };
+            } catch (e) {
+                console.error('加载账户失败:', e);
+            }
+        };
+        
+        const refreshAllAccounts = async () => {
+            refreshing.value = true;
+            try {
+                await fetch('/api/accounts/refresh', { method: 'POST' });
+                await loadAccounts();
+                lastRefreshTime.value = new Date().toLocaleString();
+                ElementPlus.ElMessage.success('刷新成功');
+            } catch (e) {
+                ElementPlus.ElMessage.error('刷新失败');
+            } finally {
+                refreshing.value = false;
+            }
+        };
+        
+        // ========== 任务记录 ==========
+        const tasks = ref([]);
+        const taskStats = ref({ total: 0, today: 0, by_status: {}, by_type: {} });
+        const taskFilter = ref({ status: '', type: '' });
+        const taskPage = ref(1);
+        const taskPageSize = ref(20);
+        const taskTotal = ref(0);
+        const loadingTasks = ref(false);
+        
+        const loadTasks = async () => {
+            loadingTasks.value = true;
+            try {
+                const params = new URLSearchParams({
+                    page: taskPage.value,
+                    page_size: taskPageSize.value,
+                });
+                if (taskFilter.value.status) params.append('status', taskFilter.value.status);
+                if (taskFilter.value.type) params.append('task_type', taskFilter.value.type);
+                
+                const resp = await fetch(`/api/tasks?${params}`);
+                const data = await resp.json();
+                tasks.value = data.tasks;
+                taskTotal.value = data.total;
+            } catch (e) {
+                console.error('加载任务失败:', e);
+            } finally {
+                loadingTasks.value = false;
+            }
+        };
+        
+        const loadTaskStats = async () => {
+            try {
+                const resp = await fetch('/api/tasks/stats');
+                taskStats.value = await resp.json();
+            } catch (e) {
+                console.error('加载统计失败:', e);
+            }
+        };
+        
+        // ========== 积分记录 ==========
+        const creditLogs = ref([]);
+        const creditFilter = ref({ account_id: null });
+        const creditPage = ref(1);
+        const creditPageSize = ref(50);
+        const creditTotal = ref(0);
+        const loadingCredits = ref(false);
+        
+        const loadCreditLogs = async () => {
+            loadingCredits.value = true;
+            try {
+                const params = new URLSearchParams({
+                    page: creditPage.value,
+                    page_size: creditPageSize.value,
+                });
+                if (creditFilter.value.account_id) params.append('account_id', creditFilter.value.account_id);
+                
+                const resp = await fetch(`/api/credit-logs?${params}`);
+                const data = await resp.json();
+                creditLogs.value = data.logs;
+                creditTotal.value = data.total;
+            } catch (e) {
+                console.error('加载积分记录失败:', e);
+            } finally {
+                loadingCredits.value = false;
+            }
+        };
+        
+        // ========== 工具函数 ==========
+        const formatTime = (timeStr) => {
+            if (!timeStr) return '-';
+            try {
+                const date = new Date(timeStr);
+                return date.toLocaleString('zh-CN', { 
+                    month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit' 
+                });
+            } catch {
+                return timeStr.slice(0, 16).replace('T', ' ');
+            }
+        };
+        
+        const getStatusType = (status) => {
+            const map = {
+                'pending': 'warning',
+                'processing': 'primary',
+                'completed': 'success',
+                'failed': 'danger',
+            };
+            return map[status] || 'info';
+        };
+        
+        const getStatusText = (status) => {
+            const map = {
+                'pending': '待处理',
+                'processing': '处理中',
+                'completed': '已完成',
+                'failed': '失败',
+            };
+            return map[status] || status;
+        };
+        
+        // ========== 初始化 ==========
+        onMounted(() => {
+            loadAccounts();
+            loadTaskStats();
+            loadTasks();
+            loadCreditLogs();
+        });
+        
+        return {
+            activeTab,
+            // 生成
+            generateForm, generating, generateResult, generateImage,
+            previewVisible, previewUrl, previewImage,
+            // 账户
+            accounts, accountStats, refreshing, lastRefreshTime,
+            loadAccounts, refreshAllAccounts,
+            // 任务
+            tasks, taskStats, taskFilter, taskPage, taskPageSize, taskTotal, loadingTasks,
+            loadTasks, loadTaskStats,
+            // 积分
+            creditLogs, creditFilter, creditPage, creditPageSize, creditTotal, loadingCredits,
+            loadCreditLogs,
+            // 工具
+            formatTime, getStatusType, getStatusText,
+        };
+    }
+});
+
+// 注册图标
+for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+    app.component(key, component);
+}
+
+app.use(ElementPlus);
+app.mount('#app');
+</script>
+</body>
+</html>

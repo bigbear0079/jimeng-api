@@ -2,6 +2,11 @@ import path from "path";
 import _ from "lodash";
 import mime from "mime";
 import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
+import { HttpsProxyAgent } from "https-proxy-agent";
+import dotenv from "dotenv";
+
+// 加载 .env 文件
+dotenv.config();
 
 import APIException from "@/lib/exceptions/APIException.ts";
 import EX from "@/api/consts/exceptions.ts";
@@ -28,6 +33,75 @@ import {
   VERSION_CODE,
   RETRY_CONFIG
 } from "@/api/consts/common.ts";
+
+// 代理轮询配置
+const PROXY_ROTATION_ENABLED = process.env.PROXY_ROTATION === "true" || process.env.PROXY_ROTATION === "1";
+const PROXY_START_PORT = parseInt(process.env.PROXY_START_PORT || "7891");
+const PROXY_END_PORT = parseInt(process.env.PROXY_END_PORT || "7972");
+const PROXY_HOST = process.env.PROXY_HOST || "127.0.0.1";
+const PROXY_PORT_COUNT = PROXY_END_PORT - PROXY_START_PORT + 1;
+
+// 单一代理配置（不轮询时使用）
+const SINGLE_PROXY_URL = process.env.PROXY_URL || process.env.HTTP_PROXY || process.env.HTTPS_PROXY || "";
+
+// Token 到代理端口的映射缓存
+const tokenProxyMap = new Map<string, number>();
+// 下一个分配的代理索引
+let nextProxyIndex = 0;
+
+/**
+ * 根据 token 获取绑定的代理端口
+ * 同一个 token 始终使用同一个代理端口
+ */
+function getProxyPortForToken(token: string): number {
+  if (!tokenProxyMap.has(token)) {
+    const port = PROXY_START_PORT + (nextProxyIndex % PROXY_PORT_COUNT);
+    tokenProxyMap.set(token, port);
+    nextProxyIndex++;
+    logger.info(`Token ${token.substring(0, 10)}... 绑定代理端口: ${port}`);
+  }
+  return tokenProxyMap.get(token)!;
+}
+
+/**
+ * 根据 token 获取代理 Agent
+ * 同一个 token 始终使用同一个代理
+ */
+function getProxyAgentForToken(token: string): HttpsProxyAgent<string> | null {
+  if (PROXY_ROTATION_ENABLED) {
+    const port = getProxyPortForToken(token);
+    const proxyUrl = `http://${PROXY_HOST}:${port}`;
+    return new HttpsProxyAgent(proxyUrl);
+  } else if (SINGLE_PROXY_URL) {
+    return new HttpsProxyAgent(SINGLE_PROXY_URL);
+  }
+  return null;
+}
+
+/**
+ * 获取下一个代理 Agent（轮询模式，用于非 token 相关请求）
+ */
+function getNextProxyAgent(): HttpsProxyAgent<string> | null {
+  if (PROXY_ROTATION_ENABLED) {
+    const port = PROXY_START_PORT + (nextProxyIndex % PROXY_PORT_COUNT);
+    nextProxyIndex++;
+    const proxyUrl = `http://${PROXY_HOST}:${port}`;
+    logger.info(`使用代理 (轮询): ${proxyUrl}`);
+    return new HttpsProxyAgent(proxyUrl);
+  } else if (SINGLE_PROXY_URL) {
+    return new HttpsProxyAgent(SINGLE_PROXY_URL);
+  }
+  return null;
+}
+
+// 初始化日志
+if (PROXY_ROTATION_ENABLED) {
+  logger.info(`代理轮询已启用: ${PROXY_HOST}:${PROXY_START_PORT}-${PROXY_END_PORT} (共 ${PROXY_PORT_COUNT} 个)`);
+} else if (SINGLE_PROXY_URL) {
+  logger.info(`使用固定代理: ${SINGLE_PROXY_URL}`);
+} else {
+  logger.info(`未配置代理，直连模式`);
+}
 
 // 模型名称
 const MODEL_NAME = "jimeng";
@@ -294,6 +368,9 @@ export async function request(
   logger.info(`请求参数: ${JSON.stringify(requestParams)}`);
   logger.info(`请求数据: ${JSON.stringify(options.data || {})}`);
 
+  // 获取代理 agent（基于 token 绑定，同一 token 使用同一代理）
+  const currentProxyAgent = getProxyAgentForToken(refreshToken);
+
   // 添加重试逻辑
   let retries = 0;
   const maxRetries = RETRY_CONFIG.MAX_RETRY_COUNT;
@@ -314,6 +391,7 @@ export async function request(
         headers: headers,
         timeout: 45000, // 增加超时时间到45秒
         validateStatus: () => true, // 允许任何状态码
+        ...(currentProxyAgent ? { httpsAgent: currentProxyAgent, httpAgent: currentProxyAgent } : {}),
         ..._.omit(options, "params", "headers"),
       });
 
@@ -380,9 +458,11 @@ export async function request(
   */
  export async function checkFileUrl(fileUrl: string) {
   if (util.isBASE64Data(fileUrl)) return;
+  const checkProxyAgent = getNextProxyAgent();
   const result = await axios.head(fileUrl, {
     timeout: 15000,
     validateStatus: () => true,
+    ...(checkProxyAgent ? { httpsAgent: checkProxyAgent, httpAgent: checkProxyAgent } : {}),
   });
   if (result.status >= 400)
     throw new APIException(
@@ -432,12 +512,14 @@ export async function uploadFile(
     else {
       filename = path.basename(fileUrl);
       logger.info(`开始下载远程文件: ${fileUrl}`);
+      const downloadProxyAgent = getNextProxyAgent();
       ({ data: fileData } = await axios.get(fileUrl, {
         responseType: "arraybuffer",
         // 100M限制
         maxContentLength: FILE_MAX_SIZE,
         // 60秒超时
         timeout: 60000,
+        ...(downloadProxyAgent ? { httpsAgent: downloadProxyAgent, httpAgent: downloadProxyAgent } : {}),
       }));
       logger.info(`文件下载完成，文件名: ${filename}, 大小: ${fileData.length}字节`);
     }
@@ -478,6 +560,7 @@ export async function uploadFile(
     const { proof_info } = proofResult;
     logger.info(`开始上传文件到: ${uploadProofUrl}`);
 
+    const uploadProxyAgent = getNextProxyAgent();
     const uploadResult = await axios.post(
       uploadProofUrl,
       formData,
@@ -489,6 +572,7 @@ export async function uploadFile(
         params: proof_info.query_params,
         timeout: 60000,
         validateStatus: () => true, // 允许任何状态码以便详细处理
+        ...(uploadProxyAgent ? { httpsAgent: uploadProxyAgent, httpAgent: uploadProxyAgent } : {}),
       }
     );
 

@@ -1,0 +1,329 @@
+listeners:
+- name: mixed0
+  type: mixed
+  port: 7891
+  proxy: 🇯🇵日本东京 | 移动联通推荐
+- name: mixed1
+  type: mixed
+  port: 7892
+  proxy: 🇯🇵日本东京2 | 移动联通推荐
+- name: mixed2
+  type: mixed
+  port: 7893
+  proxy: 🇯🇵日本东京3 | 移动联通推荐
+- name: mixed3
+  type: mixed
+  port: 7894
+  proxy: 🇯🇵日本东京4 | 移动联通推荐
+- name: mixed4
+  type: mixed
+  port: 7895
+  proxy: 🇯🇵日本东京5 | 移动联通推荐
+- name: mixed5
+  type: mixed
+  port: 7896
+  proxy: 🇯🇵日本东京6 | 移动联通推荐
+- name: mixed6
+  type: mixed
+  port: 7897
+  proxy: 🇯🇵日本东京7 | 移动联通推荐
+- name: mixed7
+  type: mixed
+  port: 7898
+  proxy: 🇯🇵日本东京8-0.1倍 | 电信联通推荐
+- name: mixed8
+  type: mixed
+  port: 7899
+  proxy: 🇯🇵日本东京9-0.1倍 | 电信联通推荐
+- name: mixed9
+  type: mixed
+  port: 7900
+  proxy: 🇯🇵日本东京10-0.1倍 | 电信联通推荐
+- name: mixed10
+  type: mixed
+  port: 7901
+  proxy: 🇯🇵日本东京11-0.1倍 | 电信联通推荐
+- name: mixed11
+  type: mixed
+  port: 7902
+  proxy: 🇸🇬AWS新加坡01 | 移动联通推荐
+- name: mixed12
+  type: mixed
+  port: 7903
+  proxy: 🇸🇬AWS新加坡02 | 移动联通推荐
+- name: mixed13
+  type: mixed
+  port: 7904
+  proxy: 🇸🇬AWS新加坡03 | 移动联通推荐
+- name: mixed14
+  type: mixed
+  port: 7905
+  proxy: 🇺🇸美国01-0.1倍 | 电信联通移动推荐
+- name: mixed15
+  type: mixed
+  port: 7906
+  proxy: 🇺🇸美国02-0.1倍 | 电信联通移动推荐
+- name: mixed16
+  type: mixed
+  port: 7907
+  proxy: 🇺🇸美国03-0.1倍 | 电信联通移动推荐
+- name: mixed17
+  type: mixed
+  port: 7908
+  proxy: 🇺🇸美国04-0.1倍 | 电信联通移动推荐
+- name: mixed18
+  type: mixed
+  port: 7909
+  proxy: 🇺🇸美国05-0.1倍 | 电信联通移动推荐
+- name: mixed19
+  type: mixed
+  port: 7910
+  proxy: 🇺🇸美国06-0.1倍 | 电信联通移动推荐
+- name: mixed20
+  type: mixed
+  port: 7911
+  proxy: 🇺🇸美国07-0.1倍 | 电信联通移动推荐
+- name: mixed21
+  type: mixed
+  port: 7912
+  proxy: 🇺🇸美国08-0.1倍 | 电信联通移动推荐
+- name: mixed22
+  type: mixed
+  port: 7913
+  proxy: 🇺🇸美国09-0.1倍 | 电信联通移动推荐
+- name: mixed23
+  type: mixed
+  port: 7914
+  proxy: 🇺🇸美国10-0.1倍 | 电信移动推荐
+- name: mixed24
+  type: mixed
+  port: 7915
+  proxy: 🇺🇸美国11-0.1倍 | 电信移动推荐
+- name: mixed25
+  type: mixed
+  port: 7916
+  proxy: 🇺🇸美国12-0.1倍 | 电信移动推荐
+- name: mixed26
+  type: mixed
+  port: 7917
+  proxy: 🇭🇰香港01 | 移动联通推荐
+- name: mixed27
+  type: mixed
+  port: 7918
+  proxy: 🇭🇰香港02 | 移动联通推荐
+- name: mixed28
+  type: mixed
+  port: 7919
+  proxy: 🇭🇰香港03 | 移动联通推荐
+- name: mixed29
+  type: mixed
+  port: 7920
+  proxy: 🇭🇰香港04 | 移动联通推荐
+- name: mixed30
+  type: mixed
+  port: 7921
+  proxy: 🇭🇰香港05 | 移动联通推荐
+- name: mixed31
+  type: mixed
+  port: 7922
+  proxy: 🇭🇰香港06 | 移动联通推荐
+- name: mixed32
+  type: mixed
+  port: 7923
+  proxy: 🇭🇰香港07 | 移动联通推荐
+- name: mixed33
+  type: mixed
+  port: 7924
+  proxy: 🇰🇷韩国 | 高速专线-hy2
+- name: mixed34
+  type: mixed
+  port: 7925
+  proxy: 🇦🇪迪拜 | 高速专线-hy2
+- name: mixed35
+  type: mixed
+  port: 7926
+  proxy: 🇨🇭瑞士苏黎世 | 高速专线-hy2
+- name: mixed36
+  type: mixed
+  port: 7927
+  proxy: 🇦🇺澳大利亚 | 高速专线-hy2
+- name: mixed37
+  type: mixed
+  port: 7928
+  proxy: 🇦🇺澳大利亚2 | 高速专线-hy2
+- name: mixed38
+  type: mixed
+  port: 7929
+  proxy: 🇦🇺澳大利亚3 | 高速专线-hy2
+- name: mixed39
+  type: mixed
+  port: 7930
+  proxy: 🇸🇬新加坡 | 高速专线-hy2
+- name: mixed40
+  type: mixed
+  port: 7931
+  proxy: 🇸🇬新加坡2 | 高速专线-hy2
+- name: mixed41
+  type: mixed
+  port: 7932
+  proxy: 🇸🇬新加坡3 | 高速专线-hy2
+- name: mixed42
+  type: mixed
+  port: 7933
+  proxy: 🇸🇬新加坡4 | 高速专线-hy2
+- name: mixed43
+  type: mixed
+  port: 7934
+  proxy: 🇯🇵日本东京 | 移动联通推荐-hy2
+- name: mixed44
+  type: mixed
+  port: 7935
+  proxy: 🇯🇵日本东京2 | 移动联通推荐-hy2
+- name: mixed45
+  type: mixed
+  port: 7936
+  proxy: 🇯🇵日本东京3 | 移动联通推荐-hy2
+- name: mixed46
+  type: mixed
+  port: 7937
+  proxy: 🇯🇵日本东京4 | 移动联通推荐-hy2
+- name: mixed47
+  type: mixed
+  port: 7938
+  proxy: 🇯🇵日本东京5 | 电信联通推荐-hy2
+- name: mixed48
+  type: mixed
+  port: 7939
+  proxy: 🇯🇵日本东京6 | 电信联通推荐-hy2
+- name: mixed49
+  type: mixed
+  port: 7940
+  proxy: 🇯🇵日本东京7 | 电信联通推荐-hy2
+- name: mixed50
+  type: mixed
+  port: 7941
+  proxy: 🇯🇵日本东京8 | 电信联通推荐-hy2
+- name: mixed51
+  type: mixed
+  port: 7942
+  proxy: 🇺🇸美国阿什本01-0.1倍
+- name: mixed52
+  type: mixed
+  port: 7943
+  proxy: 🇺🇸美国阿什本02-0.1倍
+- name: mixed53
+  type: mixed
+  port: 7944
+  proxy: 🇺🇸美国阿什本03-0.1倍
+- name: mixed54
+  type: mixed
+  port: 7945
+  proxy: 🇰🇷韩国首尔01
+- name: mixed55
+  type: mixed
+  port: 7946
+  proxy: 🇹🇼台湾 | 避免晚高峰使用
+- name: mixed56
+  type: mixed
+  port: 7947
+  proxy: 🇹🇼台湾2 | 避免晚高峰使用
+- name: mixed57
+  type: mixed
+  port: 7948
+  proxy: 🇹🇼台湾3 | 避免晚高峰使用
+- name: mixed58
+  type: mixed
+  port: 7949
+  proxy: 🇯🇵日本高速01-0.1倍
+- name: mixed59
+  type: mixed
+  port: 7950
+  proxy: 🇮🇳印度01-0.1倍
+- name: mixed60
+  type: mixed
+  port: 7951
+  proxy: 🇺🇸美国圣何塞01-0.1倍
+- name: mixed61
+  type: mixed
+  port: 7952
+  proxy: 🇺🇸美国圣何塞02-0.1倍
+- name: mixed62
+  type: mixed
+  port: 7953
+  proxy: 🇺🇸美国圣何塞03-0.1倍
+- name: mixed63
+  type: mixed
+  port: 7954
+  proxy: 🇺🇸美国洛杉矶04-0.1倍
+- name: mixed64
+  type: mixed
+  port: 7955
+  proxy: 🇺🇸美国01 | 合适下载使用-0.01倍
+- name: mixed65
+  type: mixed
+  port: 7956
+  proxy: 🇺🇸美国02 | 合适下载使用-0.01倍
+- name: mixed66
+  type: mixed
+  port: 7957
+  proxy: 🇺🇸美国03 | 合适下载使用-0.01倍
+- name: mixed67
+  type: mixed
+  port: 7958
+  proxy: 🇺🇸美国04 | 合适下载使用-0.01倍
+- name: mixed68
+  type: mixed
+  port: 7959
+  proxy: 🇺🇸美国05 | 合适下载使用-0.01倍
+- name: mixed69
+  type: mixed
+  port: 7960
+  proxy: 🇺🇸美国圣何塞01 | 三网推荐
+- name: mixed70
+  type: mixed
+  port: 7961
+  proxy: 🇺🇸美国圣何塞02 | 三网推荐
+- name: mixed71
+  type: mixed
+  port: 7962
+  proxy: 🇺🇸美国圣何塞03 | 三网推荐
+- name: mixed72
+  type: mixed
+  port: 7963
+  proxy: 🇺🇸美国洛杉矶04 | 三网推荐
+- name: mixed73
+  type: mixed
+  port: 7964
+  proxy: 🇯🇵日本东京01 | 高速专线推荐
+- name: mixed74
+  type: mixed
+  port: 7965
+  proxy: 🇯🇵日本东京02 | 高速专线推荐
+- name: mixed75
+  type: mixed
+  port: 7966
+  proxy: 🇯🇵日本东京03 | 高速专线推荐
+- name: mixed76
+  type: mixed
+  port: 7967
+  proxy: 🇯🇵日本东京04 | 高速专线推荐
+- name: mixed77
+  type: mixed
+  port: 7968
+  proxy: 🇯🇵日本东京05 | 高速专线推荐
+- name: mixed78
+  type: mixed
+  port: 7969
+  proxy: 🇯🇵日本东京06 | 高速专线推荐
+- name: mixed79
+  type: mixed
+  port: 7970
+  proxy: 🇸🇬新加坡01 | 高速专线推荐
+- name: mixed80
+  type: mixed
+  port: 7971
+  proxy: 🇸🇬新加坡02 | 高速专线推荐
+- name: mixed81
+  type: mixed
+  port: 7972
+  proxy: 🇸🇬新加坡03 | 高速专线推荐
