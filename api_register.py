@@ -13,8 +13,8 @@ from typing import Optional, Dict
 # Tempmail API 配置
 TEMPMAIL_API_KEY = "tempmail.20251223.7eftc4cqujo8m0bifqr1sdq4fkmm3agqkp3i31gz1xq382yx"
 
-# 默认代理
-DEFAULT_PROXY = "127.0.0.1:7897"
+# 默认代理（设为 None 表示直连）
+DEFAULT_PROXY = None
 
 # 代理列表（用于轮询）
 PROXY_LIST = [f"127.0.0.1:{port}" for port in range(7891, 7973)]  # 82个代理端口

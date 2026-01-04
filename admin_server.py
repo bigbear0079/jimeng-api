@@ -368,15 +368,23 @@ async def generate_image(req: ImageGenerateRequest):
             
             result = resp.json()
             
-            # 提取图片URL
+            # 提取图片URL 和 history_id
             image_urls = []
+            history_id = None
             if "data" in result and isinstance(result["data"], list):
                 for item in result["data"]:
                     if "url" in item:
                         image_urls.append(item["url"])
+                    # 尝试提取 history_id
+                    if "history_id" in item:
+                        history_id = item["history_id"]
             
-            # 记录任务
-            task_id = f"img_{datetime.now().strftime('%Y%m%d%H%M%S')}_{account_id}"
+            # 如果没有从 data 中获取到 history_id，尝试从其他位置获取
+            if not history_id and "history_id" in result:
+                history_id = result["history_id"]
+            
+            # 使用 history_id 作为 task_id，如果没有则用本地生成的
+            task_id = history_id or f"img_{datetime.now().strftime('%Y%m%d%H%M%S')}_{account_id}"
             result_url = image_urls[0] if image_urls else None
             status = "completed" if resp.status_code == 200 and image_urls else "failed"
             
@@ -541,6 +549,263 @@ async def add_credit_log(
     conn.close()
     
     return {"success": True}
+
+
+# ============ 历史任务查询 API ============
+
+@app.get("/api/history", tags=["历史任务"])
+async def get_dreamina_history(
+    account_id: int = 1,
+    page: int = 1,
+    page_size: int = 20,
+    scene: str = "image",
+    history_id: str = None,
+):
+    """查询 Dreamina 历史生成任务（输入任务ID直接查询）"""
+    import httpx
+    
+    # 获取账户 token - 从 .env 获取
+    env_accounts = get_env_accounts()
+    if account_id not in env_accounts:
+        raise HTTPException(status_code=404, detail=f"账户 {account_id} 不存在")
+    
+    token = env_accounts[account_id]["token"]
+    if not token:
+        raise HTTPException(status_code=400, detail="账户 token 为空")
+    
+    # 解析 sessionid
+    if token.startswith("us-"):
+        sessionid = token[3:]
+        region = "US"
+        base_url = "https://dreamina-api.us.capcut.com"
+    elif token.startswith("cn-"):
+        sessionid = token[3:]
+        region = "CN"
+        base_url = "https://jimeng-api.jianying.com"
+    else:
+        sessionid = token
+        region = "US"
+        base_url = "https://dreamina-api.us.capcut.com"
+    
+    headers = {
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Cookie": f"sessionid={sessionid}",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Origin": "https://dreamina.capcut.com",
+        "Referer": "https://dreamina.capcut.com/",
+    }
+    
+    params = {
+        "aid": 513641,
+        "device_platform": "web",
+        "region": region,
+        "web_version": "7.5.0",
+    }
+    
+    # 如果没有提供 history_id，从本地数据库获取
+    history_ids = []
+    if history_id:
+        history_ids = [history_id]
+    else:
+        # 从本地数据库获取任务ID列表
+        conn = get_db()
+        cursor = conn.cursor()
+        task_type = "image" if scene == "image" else "video"
+        offset = (page - 1) * page_size
+        
+        cursor.execute("""
+            SELECT task_id FROM tasks 
+            WHERE account_id = ? AND task_type = ?
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        """, (account_id, task_type, page_size, offset))
+        rows = cursor.fetchall()
+        conn.close()
+        
+        # 提取数字ID
+        for row in rows:
+            task_id = row[0]
+            if task_id and task_id.isdigit():
+                history_ids.append(task_id)
+    
+    if not history_ids:
+        return {
+            "success": True,
+            "account_id": account_id,
+            "tasks": [],
+            "total": 0,
+            "page": page,
+            "page_size": page_size,
+            "message": "没有找到任务记录",
+        }
+    
+    # 用 get_history_by_ids 批量查询
+    data = {
+        "history_ids": history_ids,
+        "image_info": {
+            "width": 2048,
+            "height": 2048,
+            "format": "webp",
+            "image_scene_list": [
+                {"scene": "normal", "width": 720, "height": 720, "uniq_key": "720", "format": "webp"},
+            ]
+        }
+    }
+    
+    try:
+        async with httpx.AsyncClient(
+            timeout=30, proxy=f"http://{PROXY}" if PROXY else None
+        ) as client:
+            resp = await client.post(
+                f"{base_url}/mweb/v1/get_history_by_ids",
+                headers=headers,
+                params=params,
+                json=data,
+            )
+
+            if resp.status_code == 200:
+                result = resp.json()
+                result_data = result.get("data", {})
+
+                # 格式化任务列表
+                tasks = []
+                for hid in history_ids:
+                    history_info = result_data.get(hid, {})
+                    if history_info:
+                        task_info = history_info.get("task", {})
+                        item_list = history_info.get("item_list", [])
+                        cover_url = ""
+                        title = "无标题"
+                        if item_list:
+                            cover_url = item_list[0].get("common_attr", {}).get("cover_url", "")
+                            title = item_list[0].get("common_attr", {}).get("description", "无标题")
+
+                        status = task_info.get("status", 0)
+                        status_map = {10: "已完成", 20: "处理中", 30: "失败", 42: "后处理", 45: "最终处理", 50: "已完成"}
+
+                        tasks.append({
+                            "id": hid,
+                            "title": title,
+                            "status": status,
+                            "status_text": status_map.get(status, f"未知({status})"),
+                            "cover_url": cover_url,
+                            "create_time": history_info.get("created_time", 0),
+                            "update_time": task_info.get("finish_time", 0),
+                            "image_count": len(item_list),
+                        })
+                
+                return {
+                    "success": True,
+                    "account_id": account_id,
+                    "tasks": tasks,
+                    "total": len(tasks),
+                    "page": page,
+                    "page_size": page_size,
+                }
+            else:
+                raise HTTPException(status_code=resp.status_code, detail=f"API 请求失败: {resp.text}")
+                
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="请求超时")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/history/{history_id}", tags=["历史任务"])
+async def get_history_detail(
+    history_id: str,
+    account_id: int = 1,
+):
+    """查询单个历史任务详情"""
+    import httpx
+    
+    # 获取账户 token - 从 .env 获取
+    env_accounts = get_env_accounts()
+    if account_id not in env_accounts:
+        raise HTTPException(status_code=404, detail=f"账户 {account_id} 不存在")
+    
+    token = env_accounts[account_id]["token"]
+    if token.startswith("us-"):
+        sessionid = token[3:]
+        base_url = "https://dreamina-api.us.capcut.com"
+    else:
+        sessionid = token
+        base_url = "https://dreamina-api.us.capcut.com"
+    
+    headers = {
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "Cookie": f"sessionid={sessionid}",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Origin": "https://dreamina.capcut.com",
+        "Referer": "https://dreamina.capcut.com/",
+    }
+    
+    params = {
+        "aid": 513641,
+        "device_platform": "web",
+        "region": "US",
+        "web_version": "7.5.0",
+    }
+    
+    data = {
+        "history_ids": [history_id],
+        "image_info": {
+            "width": 2048,
+            "height": 2048,
+            "format": "webp",
+            "image_scene_list": [
+                {"scene": "normal", "width": 1080, "height": 1080, "uniq_key": "1080", "format": "webp"},
+            ]
+        }
+    }
+    
+    try:
+        async with httpx.AsyncClient(
+            timeout=30, proxy=f"http://{PROXY}" if PROXY else None
+        ) as client:
+            resp = await client.post(
+                f"{base_url}/mweb/v1/get_history_by_ids",
+                headers=headers,
+                params=params,
+                json=data,
+            )
+            
+            if resp.status_code == 200:
+                result = resp.json()
+                history_data = result.get("data", {}).get(history_id, {})
+                
+                # 提取图片列表
+                images = []
+                item_list = history_data.get("item_list", [])
+                for item in item_list:
+                    common_attr = item.get("common_attr", {})
+                    image_info = item.get("image_info", {})
+                    images.append({
+                        "id": common_attr.get("id", ""),
+                        "description": common_attr.get("description", ""),
+                        "cover_url": common_attr.get("cover_url", ""),
+                        "url": image_info.get("large_images", [{}])[0].get("image_url", "") if image_info.get("large_images") else "",
+                    })
+                
+                task_info = history_data.get("task", {})
+                
+                return {
+                    "success": True,
+                    "history_id": history_id,
+                    "status": task_info.get("status", 0),
+                    "finish_time": task_info.get("finish_time", 0),
+                    "images": images,
+                    "raw_data": history_data,
+                }
+            else:
+                raise HTTPException(status_code=resp.status_code, detail=f"API 请求失败: {resp.text}")
+                
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="请求超时")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============ 静态文件 ============

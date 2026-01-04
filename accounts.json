@@ -1,195 +1,45 @@
 {
   "accounts": {
     "1": {
-      "credits": 120,
-      "gift_credit": 120,
+      "credits": 225,
+      "gift_credit": 225,
       "purchase_credit": 0,
       "vip_credit": 0,
       "email": null,
       "region": "us",
-      "last_update": "2026-01-03T16:44:19.772274",
-      "token": "us-72f45fdbd6d0819322ad70..."
+      "last_update": "2026-01-04T14:54:25.963611",
+      "token": "us-70c9c3b2e6f09ebda344c7..."
     },
     "2": {
-      "credits": 120,
-      "gift_credit": 120,
+      "credits": 225,
+      "gift_credit": 225,
       "purchase_credit": 0,
       "vip_credit": 0,
       "email": null,
       "region": "us",
-      "last_update": "2026-01-03T16:44:21.059874",
-      "token": "us-933726be9210d7dd9d235b..."
+      "last_update": "2026-01-04T14:54:26.452327",
+      "token": "us-b15e9d47950988bf8905bb..."
     },
     "3": {
-      "credits": 120,
-      "gift_credit": 120,
+      "credits": 225,
+      "gift_credit": 225,
       "purchase_credit": 0,
       "vip_credit": 0,
       "email": null,
       "region": "us",
-      "last_update": "2026-01-03T16:44:22.358104",
-      "token": "us-ba683684b6c7371d80d019..."
+      "last_update": "2026-01-04T14:54:26.773893",
+      "token": "us-3fce0663d86d67408f0d3d..."
     },
     "4": {
-      "credits": 0,
-      "gift_credit": 0,
+      "credits": 225,
+      "gift_credit": 225,
       "purchase_credit": 0,
       "vip_credit": 0,
       "email": null,
       "region": "us",
-      "last_update": "2026-01-03T16:44:23.687732",
-      "token": "us-3347f08e3cd597b0a2839a..."
-    },
-    "5": {
-      "credits": 0,
-      "gift_credit": 0,
-      "purchase_credit": 0,
-      "vip_credit": 0,
-      "email": null,
-      "region": "us",
-      "last_update": "2026-01-03T16:44:25.019997",
-      "token": "us-9039a586a93cb308bbd086..."
-    },
-    "6": {
-      "credits": 0,
-      "gift_credit": 0,
-      "purchase_credit": 0,
-      "vip_credit": 0,
-      "email": null,
-      "region": "us",
-      "last_update": "2026-01-03T16:44:26.631097",
-      "token": "us-2ff97cd8c880b2e48ae802..."
-    },
-    "7": {
-      "credits": 120,
-      "gift_credit": 120,
-      "purchase_credit": 0,
-      "vip_credit": 0,
-      "email": null,
-      "region": "us",
-      "last_update": "2026-01-03T21:35:32.076152",
-      "token": "us-f7f5ec6b61752fed6da15a..."
-    },
-    "8": {
-      "credits": 0,
-      "gift_credit": 0,
-      "purchase_credit": 0,
-      "vip_credit": 0,
-      "email": null,
-      "region": "us",
-      "last_update": "2026-01-03T16:44:28.828559",
-      "token": "us-03c683ab15515df0d5edc8..."
-    },
-    "9": {
-      "credits": 0,
-      "gift_credit": 0,
-      "purchase_credit": 0,
-      "vip_credit": 0,
-      "email": null,
-      "region": "us",
-      "last_update": "2026-01-03T16:44:29.871606",
-      "token": "us-a13965048d0cd44489396d..."
-    },
-    "10": {
-      "credits": 0,
-      "gift_credit": 0,
-      "purchase_credit": 0,
-      "vip_credit": 0,
-      "email": null,
-      "region": "us",
-      "last_update": "2026-01-03T16:44:30.892585",
-      "token": "us-b6b2bd2b7a62244a992c3d..."
-    },
-    "11": {
-      "credits": 0,
-      "gift_credit": 0,
-      "purchase_credit": 0,
-      "vip_credit": 0,
-      "email": null,
-      "region": "us",
-      "last_update": "2026-01-03T16:44:31.754083",
-      "token": "us-612705877fd3f85ba80380..."
-    },
-    "12": {
-      "credits": 0,
-      "gift_credit": 0,
-      "purchase_credit": 0,
-      "vip_credit": 0,
-      "email": null,
-      "region": "us",
-      "last_update": "2026-01-03T21:35:34.594548",
-      "token": "us-088ecf562c46eabb6c6fe0..."
-    },
-    "13": {
-      "credits": 120,
-      "gift_credit": 120,
-      "purchase_credit": 0,
-      "vip_credit": 0,
-      "email": null,
-      "region": "us",
-      "last_update": "2026-01-03T21:35:38.624476",
-      "token": "us-1eb9ff5dc50fb0aef83012..."
-    },
-    "14": {
-      "credits": 120,
-      "gift_credit": 120,
-      "purchase_credit": 0,
-      "vip_credit": 0,
-      "email": null,
-      "region": "us",
-      "last_update": "2026-01-03T21:35:45.411592",
-      "token": "us-8e4cfba39cbfbb122c0c72..."
-    },
-    "15": {
-      "credits": 120,
-      "gift_credit": 120,
-      "purchase_credit": 0,
-      "vip_credit": 0,
-      "email": null,
-      "region": "us",
-      "last_update": "2026-01-03T21:36:01.468682",
-      "token": "us-886958c8fdc8b523f4b6d2..."
-    },
-    "16": {
-      "credits": 120,
-      "gift_credit": 120,
-      "purchase_credit": 0,
-      "vip_credit": 0,
-      "email": null,
-      "region": "us",
-      "last_update": "2026-01-03T21:36:09.248944",
-      "token": "us-36a2efcec51949f740f89b..."
-    },
-    "17": {
-      "credits": 120,
-      "gift_credit": 120,
-      "purchase_credit": 0,
-      "vip_credit": 0,
-      "email": null,
-      "region": "us",
-      "last_update": "2026-01-03T21:36:16.477320",
-      "token": "us-967389044019fb662860c3..."
-    },
-    "18": {
-      "credits": 120,
-      "gift_credit": 120,
-      "purchase_credit": 0,
-      "vip_credit": 0,
-      "email": null,
-      "region": "us",
-      "last_update": "2026-01-03T21:36:24.143120",
-      "token": "us-7d1821eba07db316f09fff..."
-    },
-    "19": {
-      "credits": 120,
-      "gift_credit": 120,
-      "purchase_credit": 0,
-      "vip_credit": 0,
-      "email": null,
-      "region": "us",
-      "last_update": "2026-01-03T21:36:30.449836",
-      "token": "us-73adb03781d7878302ddb5..."
+      "last_update": "2026-01-04T14:54:27.788508",
+      "token": "us-4b134f76dbb9a75e0b9b5d..."
     }
   },
-  "last_reset_date": "2026-01-03"
+  "last_reset_date": "2026-01-04"
 }

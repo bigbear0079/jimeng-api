@@ -269,7 +269,16 @@
                     
                     <el-table :data="tasks" border stripe>
                         <el-table-column prop="id" label="ID" width="60"></el-table-column>
-                        <el-table-column prop="task_id" label="任务ID" width="200" show-overflow-tooltip></el-table-column>
+                        <el-table-column label="任务ID" width="180">
+                            <template #default="{ row }">
+                                <el-link type="primary" @click="goToHistoryQuery(row.task_id, row.account_id)" :underline="false">
+                                    {{ row.task_id }}
+                                </el-link>
+                                <el-button size="small" link @click="copyTaskId(row.task_id)" style="margin-left: 5px;">
+                                    <el-icon><CopyDocument /></el-icon>
+                                </el-button>
+                            </template>
+                        </el-table-column>
                         <el-table-column prop="account_id" label="账户" width="70"></el-table-column>
                         <el-table-column label="类型" width="80">
                             <template #default="{ row }">
@@ -365,6 +374,108 @@
                             @current-change="loadCreditLogs"
                         ></el-pagination>
                     </div>
+                </el-tab-pane>
+
+                <!-- 历史任务 (Dreamina API) -->
+                <el-tab-pane label="🕐 历史任务" name="history">
+                    <div class="stats-bar">
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: #409eff;">{{ historyTasks.length }}</div>
+                            <div class="stat-label">当前页任务数</div>
+                        </div>
+                    </div>
+                    
+                    <div class="toolbar">
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <el-select v-model="historyFilter.account_id" placeholder="选择账户" style="width: 150px;">
+                                <el-option v-for="acc in accounts" :key="acc.id" :label="'账户 ' + acc.id" :value="acc.id"></el-option>
+                            </el-select>
+                            <el-input v-model="historyFilter.history_id" placeholder="输入任务ID（如 215210116614）" style="width: 250px;" clearable></el-input>
+                            <el-button type="primary" @click="loadHistoryTasks" :loading="loadingHistory">
+                                <el-icon><Search /></el-icon> 查询任务
+                            </el-button>
+                        </div>
+                    </div>
+                    
+                    <el-alert v-if="!historyFilter.history_id" type="info" :closable="false" style="margin-bottom: 15px;">
+                        <template #title>
+                            <span>提示：请从服务日志中获取任务ID</span>
+                        </template>
+                        <div style="font-size: 12px; margin-top: 5px;">
+                            日志示例：<code style="background: #f5f7fa; padding: 2px 6px; border-radius: 4px;">轮询 276/900: status=50(COMPLETED)... history_id=<strong>215210116614</strong></code>
+                        </div>
+                    </el-alert>
+                    
+                    <!-- 历史任务列表 -->
+                    <el-row :gutter="15" v-if="historyTasks.length > 0">
+                        <el-col :xs="24" :sm="12" :md="8" :lg="6" v-for="task in historyTasks" :key="task.id">
+                            <div class="account-card" style="cursor: pointer;" @click="viewHistoryDetail(task.id)">
+                                <div style="position: relative; margin-bottom: 10px;">
+                                    <img v-if="task.cover_url" :src="task.cover_url" 
+                                        style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px;">
+                                    <div v-else style="width: 100%; height: 150px; background: #f5f7fa; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #999;">
+                                        无封面
+                                    </div>
+                                    <el-tag :type="getHistoryStatusType(task.status)" size="small" 
+                                        style="position: absolute; top: 8px; right: 8px;">
+                                        {{ task.status_text }}
+                                    </el-tag>
+                                </div>
+                                <div style="font-size: 14px; font-weight: 500; margin-bottom: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    {{ task.title || '无标题' }}
+                                </div>
+                                <div style="font-size: 12px; color: #999;">
+                                    ID: {{ task.id }}
+                                </div>
+                                <div style="font-size: 12px; color: #999;">
+                                    {{ formatTimestamp(task.update_time) }}
+                                </div>
+                            </div>
+                        </el-col>
+                    </el-row>
+                    
+                    <el-empty v-else-if="!loadingHistory" description="暂无历史任务，请选择账户后点击查询"></el-empty>
+                    
+                    <!-- 任务详情对话框 -->
+                    <el-dialog v-model="historyDetailVisible" title="任务详情" width="800px">
+                        <div v-if="historyDetail">
+                            <div style="margin-bottom: 15px;">
+                                <el-descriptions :column="2" border>
+                                    <el-descriptions-item label="任务ID">{{ historyDetail.history_id }}</el-descriptions-item>
+                                    <el-descriptions-item label="状态">
+                                        <el-tag :type="historyDetail.status === 50 ? 'success' : historyDetail.status === 30 ? 'danger' : 'warning'">
+                                            {{ historyDetail.status === 50 ? '已完成' : historyDetail.status === 30 ? '失败' : '处理中' }}
+                                        </el-tag>
+                                    </el-descriptions-item>
+                                    <el-descriptions-item label="完成时间">{{ formatTimestamp(historyDetail.finish_time) }}</el-descriptions-item>
+                                    <el-descriptions-item label="图片数量">{{ historyDetail.images?.length || 0 }}</el-descriptions-item>
+                                </el-descriptions>
+                            </div>
+                            
+                            <div v-if="historyDetail.images && historyDetail.images.length > 0">
+                                <div style="font-weight: 500; margin-bottom: 10px;">生成的图片：</div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 15px;">
+                                    <div v-for="(img, i) in historyDetail.images" :key="i" 
+                                        style="border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                                        <img :src="img.cover_url || img.url" 
+                                            style="max-width: 200px; max-height: 200px; display: block; cursor: pointer;"
+                                            @click="previewImage(img.url || img.cover_url)">
+                                        <div style="padding: 8px; background: #f5f7fa;">
+                                            <div style="font-size: 12px; color: #666; margin-bottom: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                                {{ img.description || '无描述' }}
+                                            </div>
+                                            <a v-if="img.url" :href="img.url" target="_blank" style="color: #667eea; font-size: 12px;">下载原图</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <el-empty v-else description="暂无图片"></el-empty>
+                        </div>
+                        <div v-else style="text-align: center; padding: 40px;">
+                            <el-icon class="is-loading" :size="40"><Loading /></el-icon>
+                            <div style="margin-top: 10px; color: #999;">加载中...</div>
+                        </div>
+                    </el-dialog>
                 </el-tab-pane>
             </el-tabs>
         </div>
@@ -542,6 +653,112 @@ const app = createApp({
             }
         };
         
+        // ========== 历史任务 (Dreamina API) ==========
+        const historyTasks = ref([]);
+        const historyFilter = ref({ account_id: 1, scene: 'image', history_id: '' });
+        const loadingHistory = ref(false);
+        const historyDetail = ref(null);
+        const historyDetailVisible = ref(false);
+        const loadingHistoryDetail = ref(false);
+        
+        const loadHistoryTasks = async () => {
+            if (!historyFilter.value.account_id) {
+                ElementPlus.ElMessage.warning('请选择账户');
+                return;
+            }
+            
+            if (!historyFilter.value.history_id) {
+                ElementPlus.ElMessage.warning('请输入任务ID');
+                return;
+            }
+            
+            loadingHistory.value = true;
+            try {
+                const params = new URLSearchParams({
+                    account_id: historyFilter.value.account_id,
+                    scene: historyFilter.value.scene,
+                    history_id: historyFilter.value.history_id,
+                    page: 1,
+                    page_size: 20,
+                });
+                
+                const resp = await fetch(`/api/history?${params}`);
+                const data = await resp.json();
+                
+                if (data.success) {
+                    historyTasks.value = data.tasks;
+                    if (data.tasks.length > 0) {
+                        ElementPlus.ElMessage.success(`查询到 ${data.tasks.length} 个任务`);
+                    } else {
+                        ElementPlus.ElMessage.warning('未找到该任务');
+                    }
+                } else {
+                    ElementPlus.ElMessage.error(data.detail || '查询失败');
+                }
+            } catch (e) {
+                console.error('加载历史任务失败:', e);
+                ElementPlus.ElMessage.error('查询失败: ' + e.message);
+            } finally {
+                loadingHistory.value = false;
+            }
+        };
+        
+        const loadHistoryDetail = async () => {
+            if (!historyFilter.value.history_id) {
+                ElementPlus.ElMessage.warning('请输入任务ID');
+                return;
+            }
+            
+            loadingHistoryDetail.value = true;
+            historyDetail.value = null;
+            historyDetailVisible.value = true;
+            
+            try {
+                const params = new URLSearchParams({
+                    account_id: historyFilter.value.account_id || 1,
+                });
+                
+                const resp = await fetch(`/api/history/${historyFilter.value.history_id}?${params}`);
+                const data = await resp.json();
+                
+                if (data.success) {
+                    historyDetail.value = data;
+                } else {
+                    ElementPlus.ElMessage.error(data.detail || '查询失败');
+                    historyDetailVisible.value = false;
+                }
+            } catch (e) {
+                console.error('加载任务详情失败:', e);
+                ElementPlus.ElMessage.error('查询失败: ' + e.message);
+                historyDetailVisible.value = false;
+            } finally {
+                loadingHistoryDetail.value = false;
+            }
+        };
+        
+        const viewHistoryDetail = async (historyId) => {
+            historyFilter.value.history_id = historyId;
+            await loadHistoryDetail();
+        };
+        
+        const getHistoryStatusType = (status) => {
+            const map = { 0: 'info', 1: 'warning', 2: 'success', 3: 'danger' };
+            return map[status] || 'info';
+        };
+        
+        const formatTimestamp = (ts) => {
+            if (!ts) return '-';
+            try {
+                const date = new Date(ts * 1000);
+                return date.toLocaleString('zh-CN', { 
+                    month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit' 
+                });
+            } catch {
+                return '-';
+            }
+        };
+        
         // ========== 工具函数 ==========
         const formatTime = (timeStr) => {
             if (!timeStr) return '-';
@@ -572,8 +789,35 @@ const app = createApp({
                 'processing': '处理中',
                 'completed': '已完成',
                 'failed': '失败',
+                'timeout': '超时',
             };
             return map[status] || status;
+        };
+        
+        // 跳转到历史任务查询
+        const goToHistoryQuery = (taskId, accountId) => {
+            // 检查是否是 Dreamina 的 history_id（纯数字且长度大于10）
+            if (/^\d{10,}$/.test(taskId)) {
+                activeTab.value = 'history';
+                historyFilter.value.account_id = accountId;
+                historyFilter.value.history_id = taskId;
+            } else {
+                // 本地生成的 task_id，提示用户
+                ElementPlus.ElMessage.info('这是本地任务ID，请从日志中获取 Dreamina 的 history_id（如 215210116614）');
+                activeTab.value = 'history';
+                historyFilter.value.account_id = accountId;
+                historyFilter.value.history_id = '';
+            }
+        };
+        
+        // 复制任务ID
+        const copyTaskId = async (taskId) => {
+            try {
+                await navigator.clipboard.writeText(taskId);
+                ElementPlus.ElMessage.success('已复制任务ID');
+            } catch (e) {
+                ElementPlus.ElMessage.error('复制失败');
+            }
         };
         
         // ========== 初始化 ==========
@@ -598,8 +842,12 @@ const app = createApp({
             // 积分
             creditLogs, creditFilter, creditPage, creditPageSize, creditTotal, loadingCredits,
             loadCreditLogs,
+            // 历史任务
+            historyTasks, historyFilter, loadingHistory,
+            historyDetail, historyDetailVisible, loadingHistoryDetail,
+            loadHistoryTasks, loadHistoryDetail, viewHistoryDetail, getHistoryStatusType, formatTimestamp,
             // 工具
-            formatTime, getStatusType, getStatusText,
+            formatTime, getStatusType, getStatusText, goToHistoryQuery, copyTaskId,
         };
     }
 });
