@@ -33,8 +33,11 @@ DREAMINA_API = {
     },
 }
 
+# 导入代理配置（自动判断本机或局域网）
+from proxy_config import PROXY_HOST
+
 # 代理配置
-PROXY = "127.0.0.1:7897"
+PROXY = f"{PROXY_HOST}:7897"
 
 
 def get_proxy_dict():

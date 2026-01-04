@@ -5,6 +5,7 @@
 import requests
 import json
 import sys
+from proxy_config import get_proxy_dict
 
 # Dreamina US API
 BASE_URL = "https://dreamina-api.us.capcut.com"
@@ -45,7 +46,7 @@ def get_history(sessionid: str, page: int = 1, page_size: int = 20):
             params=params,
             json=data,
             timeout=30,
-            proxies={"http": "http://127.0.0.1:7897", "https": "http://127.0.0.1:7897"}
+            proxies=get_proxy_dict()
         )
         
         if resp.status_code == 200:

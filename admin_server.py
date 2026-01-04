@@ -44,7 +44,10 @@ DREAMINA_API = {
     },
 }
 
-PROXY = "127.0.0.1:7897"
+# 导入代理配置（自动判断本机或局域网）
+from proxy_config import PROXY_HOST
+
+PROXY = f"{PROXY_HOST}:7897"
 
 
 def get_db():

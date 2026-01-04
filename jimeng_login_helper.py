@@ -26,9 +26,12 @@ from typing import Optional, Dict, List
 # Tempmail API 配置 (从 tempmail.lol 获取 API Key)
 TEMPMAIL_API_KEY = "tempmail.20251223.7eftc4cqujo8m0bifqr1sdq4fkmm3agqkp3i31gz1xq382yx"
 
+# 导入代理配置
+from proxy_config import PROXY_HOST, get_proxy_list, get_proxy_url
+
 # 代理列表（每个浏览器轮流使用）
 # 格式: "ip:port" 或 "ip:port:username:password"
-PROXY_LIST = [f"127.0.0.1:{port}" for port in range(7891, 7973)]  # 82个代理端口
+PROXY_LIST = get_proxy_list()  # 自动判断使用本机或局域网代理
 
 # 文件写入锁
 env_lock = threading.Lock()
@@ -225,7 +228,7 @@ def login_and_get_sessionid(
     email = None
     
     # 默认代理（用于 tempmail API，因为中国 IP 被限制）
-    tempmail_proxy = proxy or "127.0.0.1:7897"
+    tempmail_proxy = proxy or f"{PROXY_HOST}:7897"
     
     if auto_email:
         if not TEMPMAIL_API_KEY:
@@ -1310,7 +1313,7 @@ if __name__ == "__main__":
     # 单个模式
     else:
         # 单个模式使用固定代理或默认代理
-        single_proxy = fixed_proxy or "127.0.0.1:7897"
+        single_proxy = fixed_proxy or f"{PROXY_HOST}:7897"
         credentials = login_and_get_sessionid(
             region=args.region,
             timeout=args.timeout,

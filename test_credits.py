@@ -3,6 +3,7 @@ import requests
 import json
 import os
 from dotenv import load_dotenv
+from proxy_config import get_proxy_dict
 
 load_dotenv()
 
@@ -24,10 +25,7 @@ headers = {
     "Referer": "https://dreamina.capcut.com/",
 }
 
-proxies = {
-    "http": "http://127.0.0.1:7897",
-    "https": "http://127.0.0.1:7897",
-}
+proxies = get_proxy_dict()
 
 url = "https://commerce.us.capcut.com/commerce/v1/benefits/user_credit"
 

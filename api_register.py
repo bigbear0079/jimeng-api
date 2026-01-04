@@ -16,8 +16,11 @@ TEMPMAIL_API_KEY = "tempmail.20251223.7eftc4cqujo8m0bifqr1sdq4fkmm3agqkp3i31gz1x
 # 默认代理（设为 None 表示直连）
 DEFAULT_PROXY = None
 
+# 导入代理配置（自动判断本机或局域网）
+from proxy_config import get_proxy_list
+
 # 代理列表（用于轮询）
-PROXY_LIST = [f"127.0.0.1:{port}" for port in range(7891, 7973)]  # 82个代理端口
+PROXY_LIST = get_proxy_list()  # 自动判断使用本机或局域网代理
 
 # 代理索引
 _proxy_index = 0
