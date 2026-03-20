@@ -1,5 +1,5 @@
 import util from "@/lib/util.ts";
-import { DRAFT_MIN_VERSION, DRAFT_VERSION, RESOLUTION_OPTIONS } from "@/api/consts/common.ts";
+import { DRAFT_MIN_VERSION, DRAFT_VERSION, RESOLUTION_OPTIONS, RESOLUTION_OPTIONS_NANOBANANAPRO_4K } from "@/api/consts/common.ts";
 import { RegionInfo, getAssistantId } from "@/api/controllers/core.ts";
 
 export type RegionKey = "CN" | "US" | "HK" | "JP" | "SG";
@@ -20,7 +20,22 @@ function getRegionKey(regionInfo: RegionInfo): RegionKey {
   return "CN";
 }
 
-function lookupResolution(resolution: string = "2k", ratio: string = "1:1") {
+function lookupResolution(resolution: string = "2k", ratio: string = "1:1", userModel?: string) {
+  // nanobananapro 模型使用 4k 时，使用专用配置
+  if (userModel === "nanobananapro" && resolution === "4k") {
+    const ratioConfig = RESOLUTION_OPTIONS_NANOBANANAPRO_4K[ratio];
+    if (!ratioConfig) {
+      const supportedRatios = Object.keys(RESOLUTION_OPTIONS_NANOBANANAPRO_4K).join(", ");
+      throw new Error(`nanobananapro 模型在 4k 分辨率下，不支持的比例 "${ratio}"。支持的比例: ${supportedRatios}`);
+    }
+    return {
+      width: ratioConfig.width,
+      height: ratioConfig.height,
+      imageRatio: ratioConfig.ratio,
+      resolutionType: resolution,
+    };
+  }
+
   const resolutionGroup = RESOLUTION_OPTIONS[resolution];
   if (!resolutionGroup) {
     const supportedResolutions = Object.keys(RESOLUTION_OPTIONS).join(", ");
@@ -76,7 +91,7 @@ export function resolveResolution(
       };
     } else if (regionKey === "HK" || regionKey === "JP" || regionKey === "SG") {
       // HK/JP/SG 站: 强制 1k 分辨率，但 ratio 可自定义
-      const params = lookupResolution("1k", ratio);
+      const params = lookupResolution("1k", ratio, userModel);
       return {
         width: params.width,
         height: params.height,
@@ -88,7 +103,7 @@ export function resolveResolution(
   }
 
   // 其他所有情况: 使用用户指定的 resolution 和 ratio
-  const params = lookupResolution(resolution, ratio);
+  const params = lookupResolution(resolution, ratio, userModel);
   return {
     ...params,
     isForced: false,
@@ -97,10 +112,8 @@ export function resolveResolution(
 
 /**
  * benefitCount 规则
- * - CN: 全部不加
- * - US: 仅 jimeng-4.0 / jimeng-3.0 加
- * - HK/JP/SG: nanobanana 不加，其余(含 nanobananapro)加
- * - 多图模式: 所有站点都不加
+ * - 生图模式统一返回 4
+ * - 多图模式: 不加
  */
 export function getBenefitCount(
   userModel: string,
@@ -109,20 +122,7 @@ export function getBenefitCount(
 ): number | undefined {
   if (isMultiImage) return undefined;
 
-  const regionKey = getRegionKey(regionInfo);
-
-  if (regionKey === "CN") return undefined;
-
-  if (regionKey === "US") {
-    return ["jimeng-4.5", "jimeng-4.0", "jimeng-3.0"].includes(userModel) ? 4 : undefined;
-  }
-
-  if (regionKey === "HK" || regionKey === "JP" || regionKey === "SG") {
-    if (userModel === "nanobanana") return undefined;
-    return 4;
-  }
-
-  return undefined;
+  return 4;
 }
 
 export type GenerateMode = "text2img" | "img2img";
@@ -160,8 +160,8 @@ export function buildCoreParam(options: BuildCoreParamOptions) {
     mode = "text2img",
   } = options;
 
-  // ⚠️ intelligent_ratio 仅对 jimeng-4.0/jimeng-4.1/jimeng-4.5 模型有效
-  const effectiveIntelligentRatio = ['jimeng-4.0', 'jimeng-4.1', 'jimeng-4.5'].includes(userModel) ? intelligentRatio : false;
+  // ⚠️ intelligent_ratio 仅对 jimeng-4.0/jimeng-4.1/jimeng-4.5/jimeng-4.6/jimeng-5.0 模型有效
+  const effectiveIntelligentRatio = ['jimeng-4.0', 'jimeng-4.1', 'jimeng-4.5', 'jimeng-4.6', 'jimeng-5.0'].includes(userModel) ? intelligentRatio : false;
 
   // 图生图时，prompt 前缀规则: 每张图片对应 2 个 #
   // 1张图 → ##, 2张图 → ####, 3张图 → ######
@@ -218,6 +218,7 @@ interface Ability {
 
 export interface BuildMetricsExtraOptions {
   userModel: string;
+  model: string;       // 映射后的内部模型名 (如 high_aes_general_v50)
   regionInfo: RegionInfo;
   submitId: string;
   scene: SceneType;
@@ -231,6 +232,7 @@ export interface BuildMetricsExtraOptions {
  */
 export function buildMetricsExtra({
   userModel,
+  model,
   regionInfo,
   submitId,
   scene,
@@ -243,13 +245,13 @@ export function buildMetricsExtra({
   const sceneOption: any = {
     type: "image",
     scene,
-    modelReqKey: userModel,
+    modelReqKey: model,
     resolutionType,
     abilityList,
     reportParams: {
       enterSource: "generate",
       vipSource: "generate",
-      extraVipFunctionKey: `${userModel}-${resolutionType}`,
+      extraVipFunctionKey: `${model}-${resolutionType}`,
       useVipFunctionDetailsReporterHoc: true,
     },
   };

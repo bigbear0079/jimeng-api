@@ -3,17 +3,15 @@ import _ from "lodash";
 import mime from "mime";
 import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
 import { HttpsProxyAgent } from "https-proxy-agent";
-import dotenv from "dotenv";
-
-// 加载 .env 文件
-dotenv.config();
+import { SocksProxyAgent } from "socks-proxy-agent";
 
 import APIException from "@/lib/exceptions/APIException.ts";
 import EX from "@/api/consts/exceptions.ts";
 import logger from "@/lib/logger.ts";
 import util from "@/lib/util.ts";
 import { JimengErrorHandler, JimengErrorResponse } from "@/lib/error-handler.ts";
-import { BASE_URL_DREAMINA_US, BASE_URL_DREAMINA_HK } from "@/api/consts/dreamina.ts";
+import { BASE_URL_DREAMINA_US, BASE_URL_DREAMINA_HK, DA_VERSION, WEB_VERSION } from "@/api/consts/dreamina.ts";
+
 import {
   BASE_URL_CN,
   BASE_URL_US_COMMERCE,
@@ -34,82 +32,13 @@ import {
   RETRY_CONFIG
 } from "@/api/consts/common.ts";
 
-// 代理轮询配置
-const PROXY_ROTATION_ENABLED = process.env.PROXY_ROTATION === "true" || process.env.PROXY_ROTATION === "1";
-const PROXY_START_PORT = parseInt(process.env.PROXY_START_PORT || "7891");
-const PROXY_END_PORT = parseInt(process.env.PROXY_END_PORT || "7972");
-const PROXY_HOST = process.env.PROXY_HOST || "127.0.0.1";
-const PROXY_PORT_COUNT = PROXY_END_PORT - PROXY_START_PORT + 1;
-
-// 单一代理配置（不轮询时使用）
-const SINGLE_PROXY_URL = process.env.PROXY_URL || process.env.HTTP_PROXY || process.env.HTTPS_PROXY || "";
-
-// Token 到代理端口的映射缓存
-const tokenProxyMap = new Map<string, number>();
-// 下一个分配的代理索引
-let nextProxyIndex = 0;
-
-/**
- * 根据 token 获取绑定的代理端口
- * 同一个 token 始终使用同一个代理端口
- */
-function getProxyPortForToken(token: string): number {
-  if (!tokenProxyMap.has(token)) {
-    const port = PROXY_START_PORT + (nextProxyIndex % PROXY_PORT_COUNT);
-    tokenProxyMap.set(token, port);
-    nextProxyIndex++;
-    logger.info(`Token ${token.substring(0, 10)}... 绑定代理端口: ${port}`);
-  }
-  return tokenProxyMap.get(token)!;
-}
-
-/**
- * 根据 token 获取代理 Agent
- * 同一个 token 始终使用同一个代理
- */
-function getProxyAgentForToken(token: string): HttpsProxyAgent<string> | null {
-  if (PROXY_ROTATION_ENABLED) {
-    const port = getProxyPortForToken(token);
-    const proxyUrl = `http://${PROXY_HOST}:${port}`;
-    return new HttpsProxyAgent(proxyUrl);
-  } else if (SINGLE_PROXY_URL) {
-    return new HttpsProxyAgent(SINGLE_PROXY_URL);
-  }
-  return null;
-}
-
-/**
- * 获取下一个代理 Agent（轮询模式，用于非 token 相关请求）
- */
-function getNextProxyAgent(): HttpsProxyAgent<string> | null {
-  if (PROXY_ROTATION_ENABLED) {
-    const port = PROXY_START_PORT + (nextProxyIndex % PROXY_PORT_COUNT);
-    nextProxyIndex++;
-    const proxyUrl = `http://${PROXY_HOST}:${port}`;
-    logger.info(`使用代理 (轮询): ${proxyUrl}`);
-    return new HttpsProxyAgent(proxyUrl);
-  } else if (SINGLE_PROXY_URL) {
-    return new HttpsProxyAgent(SINGLE_PROXY_URL);
-  }
-  return null;
-}
-
-// 初始化日志
-if (PROXY_ROTATION_ENABLED) {
-  logger.info(`代理轮询已启用: ${PROXY_HOST}:${PROXY_START_PORT}-${PROXY_END_PORT} (共 ${PROXY_PORT_COUNT} 个)`);
-} else if (SINGLE_PROXY_URL) {
-  logger.info(`使用固定代理: ${SINGLE_PROXY_URL}`);
-} else {
-  logger.info(`未配置代理，直连模式`);
-}
-
 // 模型名称
 const MODEL_NAME = "jimeng";
 // 设备ID
 const DEVICE_ID = Math.random() * 999999999999999999 + 7000000000000000000;
 // WebID
 const WEB_ID = Math.random() * 999999999999999999 + 7000000000000000000;
-// 用户ID
+// 用户ID（32位hex，无横线）
 const USER_ID = util.uuid(false);
 // 伪装headers
 const FAKE_HEADERS = {
@@ -158,8 +87,30 @@ export interface RegionInfo {
   isCN: boolean;
 }
 
+export interface TokenWithProxy {
+  token: string;
+  proxyUrl: string | null;
+}
+
+export function parseProxyFromToken(rawToken: string): TokenWithProxy {
+  const tokenValue = rawToken.trim();
+  const proxyPattern = /^(https?|socks(?:4|5)?):\/\//i;
+  if (!proxyPattern.test(tokenValue)) return { token: tokenValue, proxyUrl: null };
+
+  const lastAtIndex = tokenValue.lastIndexOf("@");
+  if (lastAtIndex <= 0 || lastAtIndex === tokenValue.length - 1)
+    return { token: tokenValue, proxyUrl: null };
+
+  const proxyUrl = tokenValue.slice(0, lastAtIndex);
+  const token = tokenValue.slice(lastAtIndex + 1);
+  if (!proxyUrl || !token) return { token: tokenValue, proxyUrl: null };
+
+  return { token, proxyUrl };
+}
+
 export function parseRegionFromToken(refreshToken: string): RegionInfo {
-  const token = refreshToken.toLowerCase();
+  const { token: parsedToken } = parseProxyFromToken(refreshToken);
+  const token = parsedToken.toLowerCase();
   const isUS = token.startsWith('us-');
   const isHK = token.startsWith('hk-');
   const isJP = token.startsWith('jp-');
@@ -208,27 +159,21 @@ export function getAssistantId(regionInfo: RegionInfo): number {
  * 生成cookie
  */
 export function generateCookie(refreshToken: string) {
-  const { isUS, isHK, isJP, isSG } = parseRegionFromToken(refreshToken);
-  const token = (isUS || isHK || isJP || isSG) ? refreshToken.substring(3) : refreshToken;
-
-  let storeRegion = 'cn-gd';
-  if (isUS) storeRegion = 'us';
-  else if (isHK) storeRegion = 'hk';
-  else if (isJP) storeRegion = 'hk'; // JP uses HK store region
-  else if (isSG) storeRegion = 'hk'; // SG uses HK store region
+  const { token: tokenWithRegion } = parseProxyFromToken(refreshToken);
+  const { isUS, isHK, isJP, isSG } = parseRegionFromToken(tokenWithRegion);
+  const token = (isUS || isHK || isJP || isSG)
+    ? tokenWithRegion.substring(3)
+    : tokenWithRegion;
 
   return [
     `_tea_web_id=${WEB_ID}`,
     `is_staff_user=false`,
-    `store-region=${storeRegion}`,
-    `store-region-src=uid`,
     `sid_guard=${token}%7C${util.unixTimestamp()}%7C5184000%7CMon%2C+03-Feb-2025+08%3A17%3A09+GMT`,
     `uid_tt=${USER_ID}`,
     `uid_tt_ss=${USER_ID}`,
     `sid_tt=${token}`,
     `sessionid=${token}`,
     `sessionid_ss=${token}`,
-    `sid_tt=${token}`
   ].join("; ");
 }
 
@@ -259,15 +204,15 @@ export async function getCredit(refreshToken: string) {
 }
 
 /**
- * 接收今日积分
+ * 接收今日积分（仅在积分为 0 时调用）
  *
  * @param refreshToken 用于刷新access_token的refresh_token
  */
 export async function receiveCredit(refreshToken: string) {
-  logger.info("正在收取今日积分...")
+  logger.info("正在尝试收取今日积分...")
   const referer = getRefererByRegion(refreshToken, "/ai-tool/home");
 
-  const { cur_total_credits, receive_quota  } = await request("POST", "/commerce/v1/benefits/credit_receive", refreshToken, {
+  const { receive_quota } = await request("POST", "/commerce/v1/benefits/credit_receive", refreshToken, {
     data: {
       time_zone: "Asia/Shanghai"
     },
@@ -275,8 +220,8 @@ export async function receiveCredit(refreshToken: string) {
       Referer: referer
     }
   });
-  logger.info(`\n今日${receive_quota}积分收取成功\n剩余积分: ${cur_total_credits}`);
-  return cur_total_credits;
+  logger.info(`今日${receive_quota}积分收取成功`);
+  return receive_quota;
 }
 
 /**
@@ -293,9 +238,10 @@ export async function request(
   refreshToken: string,
   options: AxiosRequestConfig & { noDefaultParams?: boolean } = {}
 ) {
-  const regionInfo = parseRegionFromToken(refreshToken);
+  const { token: tokenWithRegion, proxyUrl } = parseProxyFromToken(refreshToken);
+  const regionInfo = parseRegionFromToken(tokenWithRegion);
   const { isUS, isHK, isJP, isSG } = regionInfo;
-  const token = await acquireToken(regionInfo.isInternational ? refreshToken.substring(3) : refreshToken);
+  await acquireToken(regionInfo.isInternational ? tokenWithRegion.substring(3) : tokenWithRegion);
   const deviceTime = util.unixTimestamp();
   const sign = util.md5(
     `9e2c|${uri.slice(-7)}|${PLATFORM_CODE}|${VERSION_CODE}|${deviceTime}||11ac`
@@ -345,9 +291,10 @@ export async function request(
     device_platform: "web",
     region: region,
     ...(isUS || isHK || isJP || isSG ? {} : { webId: WEB_ID }),
-    da_version: "3.3.2",
+    da_version: DA_VERSION,
+    os: "windows",
     web_component_open_flag: 1,
-    web_version: "7.5.0",
+    web_version: WEB_VERSION,
     aigc_features: "app_lip_sync",
     ...(options.params || {}),
   };
@@ -356,20 +303,31 @@ export async function request(
     ...FAKE_HEADERS,
     Origin: origin,
     Referer: origin,
+    "App-Sdk-Version": "48.0.0",
     Appid: aid,
-    Cookie: generateCookie(refreshToken),
+    Cookie: generateCookie(tokenWithRegion),
     "Device-Time": deviceTime,
+    Lan: isUS ? "en" : isJP ? "ja" : (isHK || isSG) ? "en" : "zh-Hans",
+    Loc: isUS ? "us" : isJP ? "jp" : isHK ? "hk" : isSG ? "sg" : "cn",
     Sign: sign,
     "Sign-Ver": "1",
+    Tdid: "",
     ...(options.headers || {}),
   };
 
   logger.info(`发送请求: ${method.toUpperCase()} ${fullUrl}`);
+  if (proxyUrl) {
+    const maskedProxyUrl = proxyUrl.replace(/\/\/([^@/]+)@/i, "//***@");
+    logger.info(`使用代理: ${maskedProxyUrl}`);
+  }
   logger.info(`请求参数: ${JSON.stringify(requestParams)}`);
   logger.info(`请求数据: ${JSON.stringify(options.data || {})}`);
 
-  // 获取代理 agent（基于 token 绑定，同一 token 使用同一代理）
-  const currentProxyAgent = getProxyAgentForToken(refreshToken);
+  const proxyAgent = proxyUrl
+    ? (proxyUrl.toLowerCase().startsWith("socks")
+      ? new SocksProxyAgent(proxyUrl)
+      : new HttpsProxyAgent(proxyUrl))
+    : undefined;
 
   // 添加重试逻辑
   let retries = 0;
@@ -391,8 +349,8 @@ export async function request(
         headers: headers,
         timeout: 45000, // 增加超时时间到45秒
         validateStatus: () => true, // 允许任何状态码
-        ...(currentProxyAgent ? { httpsAgent: currentProxyAgent, httpAgent: currentProxyAgent } : {}),
-        ..._.omit(options, "params", "headers"),
+        ..._.omit(options, "params", "headers", "noDefaultParams"),
+        ...(proxyAgent ? { httpAgent: proxyAgent, httpsAgent: proxyAgent, proxy: false } : {}),
       });
 
       // 记录响应状态和头信息
@@ -423,9 +381,20 @@ export async function request(
       logger.error(`请求失败 (尝试 ${retries + 1}/${maxRetries + 1}): ${error.message}`);
 
       // 如果是网络错误或超时，尝试重试
-      if ((error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT' ||
-           error.message.includes('timeout') || error.message.includes('network')) &&
-          retries < maxRetries) {
+      // 包含常见的网络错误：ECONNRESET（连接重置）、ENOTFOUND（DNS解析失败）、
+      // ECONNREFUSED（连接被拒绝）、EAI_AGAIN（DNS临时失败）、EPIPE（管道破裂）
+      const retryableErrorCodes = [
+        'ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET', 'ENOTFOUND',
+        'ECONNREFUSED', 'EAI_AGAIN', 'EPIPE', 'ENETUNREACH', 'EHOSTUNREACH'
+      ];
+      const isRetryableError = retryableErrorCodes.includes(error.code) ||
+        error.message.includes('timeout') ||
+        error.message.includes('network') ||
+        error.message.includes('ECONNRESET') ||
+        error.message.includes('socket hang up') ||
+        error.message.includes('Proxy connection');
+
+      if (isRetryableError && retries < maxRetries) {
         retries++;
         continue;
       }
@@ -451,6 +420,64 @@ export async function request(
   }
  }
 
+/**
+ * 检测上传图片内容合规性（仅国内站）
+ * 调用 algo_proxy 接口进行图片安全检测，不通过则抛出异常
+ *
+ * @param imageUri 已上传图片的 URI
+ * @param refreshToken 刷新令牌
+ * @param regionInfo 区域信息
+ */
+export async function checkImageContent(
+  imageUri: string,
+  refreshToken: string,
+  regionInfo: RegionInfo
+): Promise<void> {
+  // 仅国内站需要内容检测
+  if (regionInfo.isInternational) return;
+
+  const babiParam = JSON.stringify({
+    scenario: "image_video_generation",
+    feature_key: "aigc_to_image",
+    feature_entrance: "to-generate",
+    feature_entrance_detail: "to-generate-algo_proxy",
+  });
+
+  logger.info(`开始图片内容安全检测: ${imageUri}`);
+
+  try {
+    await request("post", "/mweb/v1/algo_proxy", refreshToken, {
+      params: {
+        babi_param: babiParam,
+      },
+      data: {
+        scene: "image_face_ip",
+        options: { ip_check: true },
+        req_key: "benchmark_test_user_upload_image_input",
+        file_list: [{ file_uri: imageUri }],
+        req_params: {},
+      },
+    });
+    logger.info(`图片内容安全检测通过: ${imageUri}`);
+  } catch (error: any) {
+    // 区分内容违规(ret=2003等) vs 网络/服务异常
+    const isContentViolation = error.message && (
+      error.message.includes('2003') ||
+      error.message.includes('risk not pass') ||
+      error.message.includes('detected risk')
+    );
+    if (isContentViolation) {
+      logger.error(`图片内容安全检测未通过: ${imageUri}, ${error.message}`);
+      throw new APIException(
+        EX.API_REQUEST_FAILED,
+        `图片内容检测未通过，该图片可能包含违规内容`
+      );
+    }
+    // 网络/服务异常不阻塞，仅记录警告
+    logger.warn(`图片内容安全检测服务异常(不阻塞): ${imageUri}, ${error.message}`);
+  }
+}
+
  /**
   * 预检查文件URL有效性
   *
@@ -458,11 +485,9 @@ export async function request(
   */
  export async function checkFileUrl(fileUrl: string) {
   if (util.isBASE64Data(fileUrl)) return;
-  const checkProxyAgent = getNextProxyAgent();
   const result = await axios.head(fileUrl, {
     timeout: 15000,
     validateStatus: () => true,
-    ...(checkProxyAgent ? { httpsAgent: checkProxyAgent, httpAgent: checkProxyAgent } : {}),
   });
   if (result.status >= 400)
     throw new APIException(
@@ -512,14 +537,12 @@ export async function uploadFile(
     else {
       filename = path.basename(fileUrl);
       logger.info(`开始下载远程文件: ${fileUrl}`);
-      const downloadProxyAgent = getNextProxyAgent();
       ({ data: fileData } = await axios.get(fileUrl, {
         responseType: "arraybuffer",
         // 100M限制
         maxContentLength: FILE_MAX_SIZE,
         // 60秒超时
         timeout: 60000,
-        ...(downloadProxyAgent ? { httpsAgent: downloadProxyAgent, httpAgent: downloadProxyAgent } : {}),
       }));
       logger.info(`文件下载完成，文件名: ${filename}, 大小: ${fileData.length}字节`);
     }
@@ -560,7 +583,6 @@ export async function uploadFile(
     const { proof_info } = proofResult;
     logger.info(`开始上传文件到: ${uploadProofUrl}`);
 
-    const uploadProxyAgent = getNextProxyAgent();
     const uploadResult = await axios.post(
       uploadProofUrl,
       formData,
@@ -572,7 +594,6 @@ export async function uploadFile(
         params: proof_info.query_params,
         timeout: 60000,
         validateStatus: () => true, // 允许任何状态码以便详细处理
-        ...(uploadProxyAgent ? { httpsAgent: uploadProxyAgent, httpAgent: uploadProxyAgent } : {}),
       }
     );
 
